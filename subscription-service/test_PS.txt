@@ -1,0 +1,78 @@
+# -----------------------------------------------
+# PowerShell скрипт для тестирования CRUDL подписок
+# Включает: Create, List, Read, Update, Delete, List с фильтром, Aggregate
+# -----------------------------------------------
+
+# Проверка что сервер жив
+curl http://localhost:8080/
+
+# Общие параметры
+$user_id = "550e8400-e29b-41d4-a716-446655440000"
+$service_name = "Netflix"
+
+# --- 1. Create ---
+$subscription = @{
+    service_name = $service_name
+    price        = 500
+    user_id      = $user_id
+    start_date   = "10-2025"  # MM-YYYY
+} | ConvertTo-Json
+
+Write-Host "Создаём подписку..."
+$createResponse = curl -Method POST http://localhost:8080/subscriptions `
+                        -Body $subscription `
+                        -ContentType "application/json" | ConvertFrom-Json
+
+$subscriptionId = $createResponse.id
+Write-Host "Подписка создана, ID:" $subscriptionId
+Write-Host ""
+
+# --- 2. List всех подписок ---
+Write-Host "Список всех подписок:"
+curl http://localhost:8080/subscriptions | ConvertFrom-Json
+Write-Host ""
+
+# --- 3. Read по ID ---
+Write-Host "Получаем подписку по ID:" $subscriptionId
+curl http://localhost:8080/subscriptions/$subscriptionId | ConvertFrom-Json
+Write-Host ""
+
+# --- 4. Update ---
+$update = @{
+    service_name = "IVI"
+    price        = 450
+    user_id      = $user_id
+    start_date   = "10-2025"  # MM-YYYY
+    end_date     = "01-2026"  # MM-YYYY
+} | ConvertTo-Json
+
+Write-Host "Обновляем подписку..."
+$updateResponse = curl -Method PUT http://localhost:8080/subscriptions/$subscriptionId `
+                        -Body $update `
+                        -ContentType "application/json" | ConvertFrom-Json
+Write-Host "Подписка обновлена:"
+$updateResponse
+Write-Host ""
+
+# --- 5. Aggregate (суммарная стоимость) ---
+$from = "07-2025"
+$to   = "12-2025"
+
+Write-Host "Считаем суммарную стоимость подписок с $from по $to..."
+$aggregateResponse = curl "http://localhost:8080/subscriptions/aggregate?from=$from&to=$to&user_id=$user_id&service_name=$service_name" `
+                       | ConvertFrom-Json
+Write-Host "Итоговая сумма:" $aggregateResponse.total
+Write-Host ""
+
+
+# --- 6. List с фильтром ---
+Write-Host "Список подписок пользователя с фильтром:"
+curl "http://localhost:8080/subscriptions?user_id=$user_id&service_name=$service_name" | ConvertFrom-Json
+Write-Host ""
+
+
+# --- 7. Delete ---
+Write-Host "Удаляем подписку..."
+curl -Method DELETE http://localhost:8080/subscriptions/$subscriptionId
+Write-Host "Подписка удалена."
+Write-Host ""
